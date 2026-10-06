@@ -1,0 +1,19 @@
+{
+  "name": "docker-bugtracker",
+  "version": "1.0.0",
+  "description": "IT incident tracker deployed with Docker Compose in dev and prod environments",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "ioredis": "6.0.0",
+    "pg": "8.23.1"
+  }
+}

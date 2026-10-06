@@ -56,4 +56,48 @@ async function statusHandler(req, res) {
 
 router.get(['/status', '/health'], statusHandler);
 
+const LIST_KEY = 'incidents:list';
+const LIST_LIMIT = 20;
+const COLUMNS = 'id, title, system_name, priority, status, created_at, updated_at';
+
+// Cache-aside read: tries Redis first and falls back to PostgreSQL on a miss
+// or when the cache is down, storing the result for the next request.
+async function readThrough(key, load) {
+  const start = performance.now();
+
+  const cached = await cache.get(key);
+  if (cached !== null) {
+    return { data: cached, source: 'cache', cache: 'HIT', durationMs: elapsedMs(start) };
+  }
+
+  const data = await load();
+  const durationMs = elapsedMs(start);
+  await cache.set(key, data);
+  return {
+    data,
+    source: 'database',
+    cache: cache.enabled ? 'MISS' : 'DISABLED',
+    durationMs,
+  };
+}
+
+async function loadIncidents() {
+  const { rows } = await db.pool.query(
+    `SELECT ${COLUMNS} FROM incidents ORDER BY created_at DESC LIMIT $1`,
+    [LIST_LIMIT],
+  );
+  return rows;
+}
+
+// Latest incidents. The headers make the cache behaviour visible from curl.
+router.get('/api/incidents', async (req, res) => {
+  const result = await readThrough(LIST_KEY, loadIncidents);
+  res.set('X-Cache', result.cache);
+  res.set('X-Response-Time', `${result.durationMs}ms`);
+  res.json({
+    data: result.data,
+    meta: { source: result.source, cache: result.cache, durationMs: result.durationMs },
+  });
+});
+
 export default router;

@@ -10,6 +10,8 @@ const pool = new Pool({
   database: config.db.database,
   user: config.db.user,
   password: config.db.password,
+  max: 10,
+  application_name: 'bugtracker-web',
   // Fail fast: without limits a ping can hang while PostgreSQL is unreachable.
   connectionTimeoutMillis: 2000,
   query_timeout: 2000,
@@ -33,8 +35,10 @@ function recordAvailability(available, reason) {
 
 // An idle connection that dies (e.g. PostgreSQL restarts) emits "error" on
 // the pool. Without this listener Node would treat it as unhandled and crash.
+// Every idle connection fails at once, so it goes through recordAvailability
+// to produce a single log line instead of one per connection.
 pool.on('error', (error) => {
-  log.error('database_pool_error', { error: error.message });
+  recordAvailability(false, error.message || error.code);
 });
 
 async function ping() {

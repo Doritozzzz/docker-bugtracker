@@ -3,6 +3,12 @@ name: bugtracker-dev
 services:
   web:
     build: .
+    # Read-only filesystem, no Linux capabilities and no privilege escalation.
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: development
       LOG_LEVEL: ${LOG_LEVEL}

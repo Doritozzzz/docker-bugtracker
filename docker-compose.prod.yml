@@ -1,0 +1,97 @@
+name: bugtracker-prod
+
+services:
+  web:
+    build: .
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL}
+      DB_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CACHE_ENABLED: ${CACHE_ENABLED}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS}
+      REDIS_HOST: cache
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      # Published on localhost only; the healthcheck lives in the Dockerfile.
+      - "127.0.0.1:${WEB_PORT}:3000"
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # PostgreSQL 18 keeps its data under a versioned subdirectory of this path.
+      - db-data:/var/lib/postgresql
+      # Runs only on the first start, while the volume is empty.
+      - type: bind
+        source: ./db/init.sql
+        target: /docker-entrypoint-initdb.d/init.sql
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - backend
+    healthcheck:
+      # Checking over TCP avoids reporting healthy while init.sql is still loading.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  cache:
+    image: redis:8-alpine
+    # Run as the unprivileged redis user.
+    user: redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    # Cache only: nothing is saved to disk and memory is capped.
+    command:
+      - sh
+      - -c
+      - 'exec redis-server --requirepass "$$REDIS_PASSWORD" --save "" --appendonly no --maxmemory 64mb --maxmemory-policy allkeys-lru'
+    # Scratch space in memory, nothing is written to disk.
+    tmpfs:
+      - /data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli -h 127.0.0.1 ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+networks:
+  # No route to the outside: db and cache are reachable only from this network.
+  backend:
+    internal: true
+  frontend:
+
+volumes:
+  db-data:

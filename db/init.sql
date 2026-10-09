@@ -31,7 +31,7 @@ FROM (VALUES
 
 -- 50,000 historical incidents, generated deterministically (no random()).
 -- Repeated array values weight the distribution (mostly LOW and RESOLVED).
--- This volume makes the aggregate in /api/stats expensive enough for the
+-- This volume makes the aggregate in /api/incidents expensive enough for the
 -- Redis cache to make a measurable difference.
 INSERT INTO incidents (title, system_name, priority, status, created_at, updated_at)
 SELECT title, system_name, priority, status, ts, ts

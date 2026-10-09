@@ -1,0 +1,6 @@
+# Ignore everything, then allow only what the image needs.
+# Secrets (.env files), Git history and local node_modules can never leak in.
+*
+!package.json
+!package-lock.json
+!src

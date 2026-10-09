@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .DELETE_ON_ERROR:
 .PHONY: help setup-env build up-dev up-prod down clean ps status logs \
-	    test-db test-cache kill-db start-db kill-cache start-cache
+	    test-db test-cache kill-db start-db kill-cache start-cache test
 
 # Environment used by the commands that take ENV=dev|prod.
 ENV ?= dev
@@ -78,3 +78,6 @@ kill-cache: .env.prod ## Stop Redis to watch the status change (prod only)
 
 start-cache: .env.prod ## Start Redis again (prod only)
 	$(call dc,prod) start cache
+
+test: ## Run every verification from scratch (destroys this project data)
+	@bash scripts/test.sh

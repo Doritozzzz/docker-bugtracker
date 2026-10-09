@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IT Incident Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="page-header">
+    <h1>IT Incident Tracker</h1>
+    <span id="env-badge" class="badge">Environment: ...</span>
+  </header>
+
+  <main>
+    <section aria-labelledby="infra-title">
+      <h2 id="infra-title">Infrastructure status</h2>
+      <div class="cards">
+        <article class="card">
+          <span id="database-dot" class="dot dot-unknown" aria-hidden="true"></span>
+          <div>
+            <h3>PostgreSQL</h3>
+            <p id="database-text" aria-live="polite">Checking...</p>
+          </div>
+        </article>
+        <article class="card">
+          <span id="cache-dot" class="dot dot-unknown" aria-hidden="true"></span>
+          <div>
+            <h3>Redis cache</h3>
+            <p id="cache-text" aria-live="polite">Checking...</p>
+          </div>
+        </article>
+      </div>
+      <p id="status-updated" class="muted">Last check: never</p>
+    </section>
+
+    <section aria-labelledby="overview-title">
+      <h2 id="overview-title">Overview</h2>
+      <dl class="counters">
+        <div><dt>Total</dt><dd id="count-total">-</dd></div>
+        <div><dt>Open</dt><dd id="count-open">-</dd></div>
+        <div><dt>In progress</dt><dd id="count-progress">-</dd></div>
+        <div><dt>Resolved</dt><dd id="count-resolved">-</dd></div>
+      </dl>
+      <p class="read-info">
+        Last read from <strong id="read-source">-</strong>
+        in <strong id="read-time">-</strong>
+        <button type="button" id="refresh-button">Refresh</button>
+      </p>
+    </section>
+
+    <section aria-labelledby="form-title">
+      <h2 id="form-title">Report an incident</h2>
+      <form id="incident-form">
+        <label>Title
+          <input id="field-title" name="title" type="text" maxlength="150" required>
+        </label>
+        <label>Affected system
+          <input id="field-system" name="system_name" type="text" maxlength="100" required>
+        </label>
+        <label>Priority
+          <select id="field-priority" name="priority">
+            <option value="LOW">Low</option>
+            <option value="MEDIUM" selected>Medium</option>
+            <option value="HIGH">High</option>
+            <option value="CRITICAL">Critical</option>
+          </select>
+        </label>
+        <button type="submit">Create incident</button>
+      </form>
+      <p id="form-message" role="status"></p>
+    </section>
+
+    <section aria-labelledby="list-title">
+      <h2 id="list-title">Latest incidents</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Title</th>
+              <th scope="col">System</th>
+              <th scope="col">Priority</th>
+              <th scope="col">Status</th>
+              <th scope="col">Created</th>
+            </tr>
+          </thead>
+          <tbody id="incident-rows">
+            <tr><td colspan="6">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

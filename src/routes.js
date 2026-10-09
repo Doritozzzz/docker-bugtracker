@@ -113,4 +113,46 @@ router.get('/api/incidents', async (req, res) => {
   });
 });
 
+const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+
+// Validates the body of a new incident and returns the cleaned fields
+// together with the list of validation errors.
+function validateNewIncident(body) {
+  const errors = [];
+
+  const text = (field, max) => {
+    const value = typeof body?.[field] === 'string' ? body[field].trim() : '';
+    if (value.length === 0 || value.length > max) {
+      errors.push(`${field} must be between 1 and ${max} characters`);
+    }
+    return value;
+  };
+
+  const title = text('title', 150);
+  const systemName = text('system_name', 100);
+  const priority = body?.priority;
+  if (!PRIORITIES.includes(priority)) {
+    errors.push(`priority must be one of ${PRIORITIES.join(', ')}`);
+  }
+
+  return { errors, title, systemName, priority };
+}
+
+// Creates an incident. The cache entry is dropped only after the insert has
+// committed; if Redis is down the entry simply expires on its own.
+router.post('/api/incidents', async (req, res) => {
+  const { errors, title, systemName, priority } = validateNewIncident(req.body);
+  if (errors.length > 0) {
+    return res.status(400).json({ error: 'validation_failed', details: errors });
+  }
+
+  const { rows } = await db.pool.query(
+    `INSERT INTO incidents (title, system_name, priority)
+     VALUES ($1, $2, $3) RETURNING ${COLUMNS}`,
+    [title, systemName, priority],
+  );
+  await cache.del(INCIDENTS_KEY);
+  res.status(201).json({ data: rows[0] });
+});
+
 export default router;

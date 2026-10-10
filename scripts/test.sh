@@ -254,6 +254,7 @@ check "prod make test-db: PostgreSQL accepts connections" has "$(mk -s test-db E
 check "make test-cache: Redis answers PONG" has "$(mk -s test-cache 2>&1)" PONG
 
 section "5. Cache behaviour (prod)"
+drop_key
 expect "first read is a MISS" MISS "$(xcache "$PROD")"
 expect "second read is a HIT" HIT "$(xcache "$PROD")"
 expect "write through the API" 201 "$(post "$PROD" "$(incident 'Cache invalidation check')")"

@@ -1,4 +1,4 @@
-Verification run: 2026-10-10 09:01:00 UTC
+Verification run: 2026-10-10 09:35:44 UTC
 Docker 29.8.2, Compose 5.6.0
 
 == 1. Setup from nothing ==
@@ -116,7 +116,7 @@ PASS  prod: /status recovers when the cache returns
 PASS  after the restart the first read is a MISS (no stale data) [MISS]
 PASS  the write made during the outage is visible (50006 + 2) [50008]
 PASS  next read is a HIT [HIT]
-INFO  server-side read time over 30 requests each: MISS mean 7.51 ms, HIT mean 0.52 ms
+INFO  server-side read time over 30 requests each: MISS mean 8.05 ms, HIT mean 0.51 ms
 PASS  a cache HIT is faster than a MISS on average
 PASS  prod (info) logs no request lines [0]
 PASS  prod web exits with code 0 on SIGTERM (graceful shutdown) [0]
@@ -124,7 +124,7 @@ PASS  prod web starts again
 
 == 6. Healthchecks ==
 PASS  web healthcheck turns unhealthy when the app does not answer
-INFO  pg_isready answered over the unix socket at 2573 ms and over TCP at 3630 ms (cold start)
+INFO  pg_isready answered over the unix socket at 4582 ms and over TCP at 5827 ms (cold start)
 PASS  the TCP check answers only after init.sql finished (later than the socket check)
 PASS  all rows exist when the TCP check reports ready [50006]
 

@@ -48,6 +48,17 @@ substep() {
   printf "  ${BLUE}➜ %s${NC}\n" "$1"
 }
 
+wait_svc() {
+  local port=$1 svc=$2 target=$3
+  for _ in $(seq 1 30); do
+    if curl -s "http://127.0.0.1:${port}/status" | grep -o "\"${svc}\":{[^}]*}" | grep -q "\"status\":\"${target}\""; then
+      return 0
+    fi
+    sleep 0.5
+  done
+  return 1
+}
+
 # Ensure environments are ready before beginning
 if [ ! -f .env.dev ] || [ ! -f .env.prod ]; then
   make setup-env >/dev/null 2>&1
@@ -169,7 +180,7 @@ pause
 
 step "Restoring Redis ('make start-cache')..."
 make start-cache >/dev/null 2>&1
-sleep 2
+wait_svc "$PROD_PORT" cache up || true
 substep "Querying /status after recovery (back to 'ok'):"
 curl -s "http://127.0.0.1:${PROD_PORT}/status" | grep -o '"status":"[^"]*"' || true
 substep "Notice in web UI: Redis status dot automatically recovers to GREEN ('Connected')."
@@ -177,7 +188,7 @@ pause
 
 step "Simulating PostgreSQL outage in Production ('make kill-db ENV=prod')..."
 make kill-db ENV=prod >/dev/null 2>&1
-sleep 1
+wait_svc "$PROD_PORT" database down || true
 
 substep "Querying /status (dynamically returns HTTP 503 Service Unavailable):"
 curl -s -o /dev/null -w "  HTTP Status Code: %{http_code}\n" "http://127.0.0.1:${PROD_PORT}/status"
@@ -187,7 +198,7 @@ pause
 
 step "Restoring PostgreSQL ('make start-db ENV=prod')..."
 make start-db ENV=prod >/dev/null 2>&1
-sleep 3
+wait_svc "$PROD_PORT" database up || true
 substep "Querying /status after PostgreSQL recovery (HTTP 200 OK):"
 curl -s -o /dev/null -w "  HTTP Status Code: %{http_code}\n" "http://127.0.0.1:${PROD_PORT}/status"
 substep "Notice in web UI: Status recovers automatically and incident table reloads!"

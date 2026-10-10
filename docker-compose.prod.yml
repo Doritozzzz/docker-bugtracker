@@ -3,6 +3,8 @@ name: bugtracker-prod
 services:
   web:
     build: .
+    # Restarted after a crash or a reboot, but not after a manual stop.
+    restart: unless-stopped
     # Read-only filesystem, no Linux capabilities and no privilege escalation.
     read_only: true
     cap_drop:
@@ -38,6 +40,7 @@ services:
 
   db:
     image: postgres:18-alpine
+    restart: unless-stopped
     # Runs as the unprivileged postgres user from the start, with a read-only
     # filesystem (scratch space in memory), no Linux capabilities and no
     # privilege escalation.
@@ -80,6 +83,7 @@ services:
 
   cache:
     image: redis:8-alpine
+    restart: unless-stopped
     # Run as the unprivileged redis user.
     user: redis
     # Read-only filesystem apart from the in-memory /data, no Linux

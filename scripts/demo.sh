@@ -88,6 +88,12 @@ step "Querying /status and /health on Production (port ${PROD_PORT}):"
 curl -s "http://127.0.0.1:${PROD_PORT}/status" | grep -o '"services":{[^}]*}' || true
 substep "Note: Both PostgreSQL and Redis are 'up' and healthy."
 
+step "Comparing structured JSON logging between environments:"
+curl -s "http://127.0.0.1:${DEV_PORT}/api/incidents" >/dev/null
+substep "Dev (debug level) traces requests & timings in JSON:"
+docker compose -f docker-compose.dev.yml --env-file .env.dev logs web 2>&1 | grep '"msg":"request"' | tail -n 1 | sed 's/^/    /' || true
+substep "Prod (info level) keeps logs clean (0 request traces, only system lifecycle events)."
+
 pause
 
 # ------------------------------------------------------------------------------
@@ -175,6 +181,8 @@ curl -s "http://127.0.0.1:${PROD_PORT}/status" | grep -o '"status":"[^"]*"' || t
 substep "Notice in web UI: Redis status dot turns RED ('Disconnected'), overall: 'degraded'."
 substep "Reading incidents without cache STILL WORKS (reading directly from PostgreSQL):"
 curl -s -o /dev/null -w "  HTTP Status Code: %{http_code}\n" "http://127.0.0.1:${PROD_PORT}/api/incidents"
+substep "Server container log captured the outage event:"
+docker compose -f docker-compose.prod.yml --env-file .env.prod logs web 2>&1 | grep 'cache_unavailable' | tail -n 1 | sed 's/^/    /' || true
 printf "${YELLOW}  (Take your time to show the degraded state in the browser)${NC}\n"
 pause
 
@@ -183,6 +191,8 @@ make start-cache >/dev/null 2>&1
 wait_svc "$PROD_PORT" cache up || true
 substep "Querying /status after recovery (back to 'ok'):"
 curl -s "http://127.0.0.1:${PROD_PORT}/status" | grep -o '"status":"[^"]*"' || true
+substep "Server container log registered the recovery event:"
+docker compose -f docker-compose.prod.yml --env-file .env.prod logs web 2>&1 | grep 'cache_available' | tail -n 1 | sed 's/^/    /' || true
 substep "Notice in web UI: Redis status dot automatically recovers to GREEN ('Connected')."
 pause
 

@@ -3,95 +3,239 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IT Incident Tracker</title>
+  <meta name="color-scheme" content="light dark">
+  <title>Overview · Incident Tracker</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script src="theme.js"></script>
   <script src="app.js" defer></script>
 </head>
-<body>
-  <header class="page-header">
-    <h1>IT Incident Tracker</h1>
-    <span id="env-badge" class="badge">Environment: ...</span>
+<body data-loading>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#/overview">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h5l3-8 4 16 3-8h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Incident Tracker</span>
+      </a>
+      <span id="env-badge" class="tag c-neutral hide-sm">…</span>
+
+      <div class="topbar-right">
+        <a id="health-pill" class="pill" href="#/system" title="Open system status">
+          <span id="health-dot" class="dot dot-unknown"></span>
+          <span id="health-text">Checking…</span>
+        </a>
+        <button id="theme-toggle" class="btn icon-btn" type="button" aria-label="Toggle light and dark theme" title="Toggle theme (T)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
+        </button>
+        <button id="new-button" class="btn btn-primary" type="button">New incident <kbd>N</kbd></button>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="Sections">
+      <div class="tabs-inner">
+        <a href="#/overview" data-tab="overview">Overview</a>
+        <a href="#/incidents" data-tab="incidents">Incidents</a>
+        <a href="#/system" data-tab="system">System</a>
+      </div>
+    </nav>
   </header>
 
-  <main>
-    <section aria-labelledby="infra-title">
-      <h2 id="infra-title">Infrastructure status</h2>
-      <div class="cards">
+  <main id="main">
+    <div id="banner" class="banner" role="alert" hidden>
+      <span id="banner-text"></span>
+      <button id="banner-retry" class="btn" type="button">Retry</button>
+    </div>
+
+    <!-- ============================================================ OVERVIEW -->
+    <section class="view" data-view="overview" hidden>
+      <div class="page-head">
+        <h1>Overview</h1>
+        <p class="sub">A live snapshot of every incident stored in PostgreSQL.</p>
+      </div>
+
+      <div class="metrics">
+        <article class="card metric" data-metric="total">
+          <h2>Total incidents</h2>
+          <p class="metric-value sk">–</p>
+          <p class="metric-sub">–</p>
+        </article>
+        <article class="card metric" data-metric="open">
+          <h2><span class="swatch c-open"></span>Open</h2>
+          <p class="metric-value sk">–</p>
+          <p class="metric-sub">–</p>
+        </article>
+        <article class="card metric" data-metric="progress">
+          <h2><span class="swatch c-in_progress"></span>In progress</h2>
+          <p class="metric-value sk">–</p>
+          <p class="metric-sub">–</p>
+        </article>
+        <article class="card metric" data-metric="resolved">
+          <h2><span class="swatch c-resolved"></span>Resolved</h2>
+          <p class="metric-value sk">–</p>
+          <p class="metric-sub">–</p>
+        </article>
+      </div>
+
+      <div class="grid-2">
         <article class="card">
-          <span id="database-dot" class="dot dot-unknown" aria-hidden="true"></span>
-          <div>
-            <h3>PostgreSQL</h3>
-            <p id="database-text" aria-live="polite">Checking...</p>
+          <header class="card-head"><h2>Status distribution</h2><span class="sub">All incidents</span></header>
+          <div class="card-body donut-wrap">
+            <div id="donut"></div>
+            <ul id="donut-legend" class="legend"></ul>
           </div>
         </article>
         <article class="card">
-          <span id="cache-dot" class="dot dot-unknown" aria-hidden="true"></span>
-          <div>
-            <h3>Redis cache</h3>
-            <p id="cache-text" aria-live="polite">Checking...</p>
+          <header class="card-head"><h2>Priority mix</h2><span class="sub">Latest 20 incidents</span></header>
+          <div id="priority-bars" class="card-body"></div>
+        </article>
+      </div>
+
+      <div class="grid-2">
+        <article class="card">
+          <header class="card-head"><h2>Recent incidents</h2><a class="link" href="#/incidents">View all</a></header>
+          <ul id="recent-list" class="feed"></ul>
+        </article>
+        <article class="card">
+          <header class="card-head"><h2>Data source</h2><a class="link" href="#/system">Details</a></header>
+          <div class="card-body">
+            <p class="sub">Last read served by</p>
+            <p id="source-name" class="source-name sk">–</p>
+            <p id="source-ms" class="source-ms mono">–</p>
+            <div id="source-spark" class="source-spark"></div>
+            <p class="sub">Cache-aside: Redis is asked first, PostgreSQL answers on a miss. Each bar of the chart is one read.</p>
           </div>
         </article>
       </div>
-      <p id="status-updated" class="muted">Last check: never</p>
     </section>
 
-    <section aria-labelledby="overview-title">
-      <h2 id="overview-title">Overview</h2>
-      <dl class="counters">
-        <div><dt>Total</dt><dd id="count-total">-</dd></div>
-        <div><dt>Open</dt><dd id="count-open">-</dd></div>
-        <div><dt>In progress</dt><dd id="count-progress">-</dd></div>
-        <div><dt>Resolved</dt><dd id="count-resolved">-</dd></div>
-      </dl>
-      <p class="read-info">
-        Last read from <strong id="read-source">-</strong>
-        in <strong id="read-time">-</strong>
-        <button type="button" id="refresh-button">Refresh</button>
-      </p>
-    </section>
-
-    <section aria-labelledby="form-title">
-      <h2 id="form-title">Report an incident</h2>
-      <form id="incident-form">
-        <label>Title
-          <input id="field-title" name="title" type="text" maxlength="150" required>
-        </label>
-        <label>Affected system
-          <input id="field-system" name="system_name" type="text" maxlength="100" required>
-        </label>
-        <label>Priority
-          <select id="field-priority" name="priority">
-            <option value="LOW">Low</option>
-            <option value="MEDIUM" selected>Medium</option>
-            <option value="HIGH">High</option>
-            <option value="CRITICAL">Critical</option>
-          </select>
-        </label>
-        <button type="submit">Create incident</button>
-      </form>
-      <p id="form-message" role="status"></p>
-    </section>
-
-    <section aria-labelledby="list-title">
-      <h2 id="list-title">Latest incidents</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">ID</th>
-              <th scope="col">Title</th>
-              <th scope="col">System</th>
-              <th scope="col">Priority</th>
-              <th scope="col">Status</th>
-              <th scope="col">Created</th>
-            </tr>
-          </thead>
-          <tbody id="incident-rows">
-            <tr><td colspan="6">Loading...</td></tr>
-          </tbody>
-        </table>
+    <!-- =========================================================== INCIDENTS -->
+    <section class="view" data-view="incidents" hidden>
+      <div class="page-head">
+        <h1>Incidents</h1>
+        <p class="sub">The 20 most recent incidents. Search and filters run in your browser.</p>
       </div>
+
+      <div class="toolbar">
+        <div class="search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="search" class="input" type="search" placeholder="Search title, system or #id" aria-label="Search incidents" autocomplete="off">
+          <kbd>/</kbd>
+        </div>
+        <select id="filter-status" class="input select" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option value="OPEN">Open</option>
+          <option value="IN_PROGRESS">In progress</option>
+          <option value="RESOLVED">Resolved</option>
+        </select>
+        <select id="filter-priority" class="input select" aria-label="Filter by priority">
+          <option value="">All priorities</option>
+          <option value="CRITICAL">Critical</option>
+          <option value="HIGH">High</option>
+          <option value="MEDIUM">Medium</option>
+          <option value="LOW">Low</option>
+        </select>
+        <button id="clear-filters" class="btn btn-ghost" type="button" hidden>Clear</button>
+        <button id="refresh" class="btn" type="button">Refresh</button>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col" data-col="id"><button type="button" data-sort="id">ID<span class="sort-ind" aria-hidden="true"></span></button></th>
+                <th scope="col">Incident</th>
+                <th scope="col" data-col="priority"><button type="button" data-sort="priority">Priority<span class="sort-ind" aria-hidden="true"></span></button></th>
+                <th scope="col" data-col="status"><button type="button" data-sort="status">Status<span class="sort-ind" aria-hidden="true"></span></button></th>
+                <th scope="col" data-col="created_at"><button type="button" data-sort="created_at">Created<span class="sort-ind" aria-hidden="true"></span></button></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <footer id="table-foot" class="table-foot"></footer>
+      </div>
+    </section>
+
+    <!-- ============================================================== SYSTEM -->
+    <section class="view" data-view="system" hidden>
+      <div class="page-head">
+        <h1>System</h1>
+        <p class="sub">Health of every service, checked automatically every 3 seconds.</p>
+      </div>
+
+      <div id="services" class="grid-3"></div>
+
+      <div class="grid-2">
+        <article class="card">
+          <header class="card-head"><h2>Deployment</h2></header>
+          <dl class="card-body facts">
+            <dt>Environment</dt><dd id="d-env">–</dd>
+            <dt>Server uptime</dt><dd id="d-uptime">–</dd>
+            <dt>Last check</dt><dd id="d-check">–</dd>
+            <dt>Check interval</dt><dd id="d-poll">3 s</dd>
+          </dl>
+        </article>
+        <article class="card">
+          <header class="card-head">
+            <h2>Read log</h2>
+            <button id="read-now" class="btn" type="button">Read now</button>
+          </header>
+          <ul id="read-log" class="log"></ul>
+        </article>
+      </div>
+
+      <article class="card section-gap">
+        <header class="card-head"><h2>Service events</h2><span class="sub">Since you opened this page</span></header>
+        <ul id="event-log" class="log"></ul>
+      </article>
     </section>
   </main>
+
+  <footer class="footer">
+    <span><kbd>N</kbd> new incident</span>
+    <span><kbd>/</kbd> search</span>
+    <span><kbd>1</kbd>–<kbd>3</kbd> views</span>
+    <span><kbd>T</kbd> theme</span>
+  </footer>
+
+  <!-- ============================================================== DIALOGS -->
+  <dialog id="detail-dialog" aria-labelledby="detail-title">
+    <div id="detail-body" class="dialog-body"></div>
+    <footer class="dialog-foot"><button class="btn" type="button" data-close>Close</button></footer>
+  </dialog>
+
+  <dialog id="new-dialog" aria-labelledby="new-title">
+    <form id="new-form">
+      <div class="dialog-body">
+        <h2 id="new-title">New incident</h2>
+        <p class="sub">Report a problem on one of your systems.</p>
+
+        <label class="field"><span>Title</span>
+          <input class="input" name="title" type="text" maxlength="150" required autofocus autocomplete="off" placeholder="e.g. Elevated latency on checkout API">
+        </label>
+        <label class="field"><span>Affected system</span>
+          <input class="input" name="system_name" type="text" maxlength="100" required autocomplete="off" placeholder="e.g. api-gateway-01">
+        </label>
+        <fieldset class="field">
+          <legend>Priority</legend>
+          <div class="segmented">
+            <label><input type="radio" name="priority" value="LOW"><span>Low</span></label>
+            <label><input type="radio" name="priority" value="MEDIUM" checked><span>Medium</span></label>
+            <label><input type="radio" name="priority" value="HIGH"><span>High</span></label>
+            <label><input type="radio" name="priority" value="CRITICAL"><span>Critical</span></label>
+          </div>
+        </fieldset>
+        <p id="new-message" class="form-message" role="alert"></p>
+      </div>
+      <footer class="dialog-foot">
+        <button class="btn" type="button" data-close>Cancel</button>
+        <button class="btn btn-primary" type="submit">Create incident</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
 </body>
 </html>

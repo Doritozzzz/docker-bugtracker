@@ -29,6 +29,18 @@ services:
 
   db:
     image: postgres:18-alpine
+    # Runs as the unprivileged postgres user from the start, with a read-only
+    # filesystem (scratch space in memory), no Linux capabilities and no
+    # privilege escalation.
+    user: postgres
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}

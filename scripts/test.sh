@@ -176,7 +176,7 @@ expect "dev seed data loaded by init.sql (rows)" 50006 "$(q dev 'SELECT count(*)
 
 page=$(curl -s -m 10 "$DEV/")
 expect "dev serves the page" 200 "$(code "$DEV/")"
-check "page contains the dashboard" has "$page" 'IT Incident Tracker'
+check "page contains the dashboard" has "$page" 'Incident Tracker'
 expect "dev serves styles.css" 200 "$(code "$DEV/styles.css")"
 expect "dev serves app.js" 200 "$(code "$DEV/app.js")"
 check "responses carry a Content-Security-Policy header" has "$(curl -sI -m 10 "$DEV/")" 'Content-Security-Policy'

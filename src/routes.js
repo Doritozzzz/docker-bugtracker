@@ -59,6 +59,7 @@ async function statusHandler(req, res) {
 }
 
 router.get('/status', statusHandler);
+router.get('/health', statusHandler);
 
 // Cache-aside read: tries Redis first and falls back to PostgreSQL on a miss
 // or when the cache is down, storing the result for the next request.

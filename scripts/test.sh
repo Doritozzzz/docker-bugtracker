@@ -158,6 +158,7 @@ expect "dev defines no cache service" "db web" "$(dev config --services | sort |
 
 st=$(curl -s -m 10 "$DEV/status")
 expect "dev /status HTTP code" 200 "$(code "$DEV/status")"
+expect "dev /health HTTP code" 200 "$(code "$DEV/health")"
 expect "dev environment reported" development "$(env_of "$st")"
 expect "dev overall status" ok "$(top "$st")"
 expect "dev database" up "$(svc "$st" database)"
@@ -190,7 +191,7 @@ expect "table intact after the injection attempt (50006 + 2 rows)" 50008 "$(q de
 
 dev_log=$(dev logs web 2>&1)
 check "dev (debug) logs the API requests" has "$dev_log" '"msg":"request"'
-expect "dev debug log skips /status and /live" 0 "$(printf '%s\n' "$dev_log" | grep '"msg":"request"' | grep -cE '"path":"/(live|status)"')"
+expect "dev debug log skips health endpoints" 0 "$(printf '%s\n' "$dev_log" | grep '"msg":"request"' | grep -cE '"path":"/(live|status|health)"')"
 
 dev stop db >/dev/null 2>&1
 check "dev: /status reports the database down" wait_svc "$DEV" database down
@@ -226,6 +227,7 @@ expect "prod defines the cache service" "cache db web" "$(prod config --services
 
 st=$(curl -s -m 10 "$PROD/status")
 expect "prod /status HTTP code" 200 "$(code "$PROD/status")"
+expect "prod /health HTTP code" 200 "$(code "$PROD/health")"
 expect "prod environment reported" production "$(env_of "$st")"
 expect "prod overall status" ok "$(top "$st")"
 expect "prod database" up "$(svc "$st" database)"

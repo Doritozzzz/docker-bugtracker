@@ -51,7 +51,7 @@ app.use((req, res, next) => {
 // One line per request at debug level (shown in dev, hidden in prod). The
 // status endpoints are skipped: they are polled every few seconds and would
 // bury the rest of the log.
-const QUIET_PATHS = new Set(['/live', '/status']);
+const QUIET_PATHS = new Set(['/live', '/status', '/health']);
 
 app.use((req, res, next) => {
   if (QUIET_PATHS.has(req.path)) return next();

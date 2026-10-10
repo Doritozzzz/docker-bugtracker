@@ -1,0 +1,131 @@
+Verification run: 2026-10-10 09:01:00 UTC
+Docker 29.8.2, Compose 5.6.0
+
+== 1. Setup from nothing ==
+PASS  make setup-env succeeds
+PASS  .env.dev permissions [600]
+PASS  .env.prod permissions [600]
+PASS  make setup-env keeps the existing secrets
+PASS  make clean succeeds
+PASS  make clean leaves nothing (containers volumes networks images) [0 0 0 0]
+PASS  make up-dev succeeds
+PASS  make up-prod succeeds
+PASS  no generated secret appears in any other file
+PASS  real .env files are not tracked by git [0]
+PASS  .env.dev is ignored by git
+PASS  .env.prod is ignored by git
+PASS  UI code never inserts data as HTML [0]
+
+== 2. Dev environment (web + db) ==
+PASS  dev web is healthy [healthy]
+PASS  dev db is healthy [healthy]
+PASS  dev defines no cache service [db web]
+PASS  dev /status HTTP code [200]
+PASS  dev /health HTTP code [200]
+PASS  dev environment reported [development]
+PASS  dev overall status [ok]
+PASS  dev database [up]
+PASS  dev cache [disabled]
+PASS  dev web publishes only on localhost [127.0.0.1:3000]
+PASS  dev db publishes no port [0]
+PASS  dev backend network is internal [true]
+PASS  dev db cannot reach the outside
+PASS  dev web runs as non-root (uid) [1000]
+PASS  dev web cannot modify its own code
+PASS  dev make test-db: PostgreSQL accepts connections
+PASS  dev seed data loaded by init.sql (rows) [50006]
+PASS  dev serves the page [200]
+PASS  page contains the dashboard
+PASS  dev serves styles.css [200]
+PASS  dev serves app.js [200]
+PASS  responses carry a Content-Security-Policy header
+PASS  POST a valid incident [201]
+PASS  POST with an empty title [400]
+PASS  POST with malformed JSON [400]
+PASS  POST with an oversized body [413]
+PASS  unknown route [404]
+PASS  SQL injection text is stored as plain data [201]
+PASS  table intact after the injection attempt (50006 + 2 rows) [50008]
+PASS  dev (debug) logs the API requests
+PASS  dev debug log skips health endpoints [0]
+PASS  dev: /status reports the database down
+PASS  dev: overall status while db is down [degraded]
+PASS  dev: HTTP code while db is down [503]
+PASS  dev: web container stays healthy while db is down [healthy]
+PASS  dev: /status recovers when db returns
+PASS  dev: HTTP code after recovery [200]
+
+== 3. Persistence (dev) ==
+PASS  insert an incident through the API [201]
+PASS  dev down removes the containers
+PASS  no container left after down [0]
+PASS  the data volume still exists [1]
+PASS  dev up recreates the containers
+PASS  db is a new container
+PASS  the incident survived [1]
+PASS  all rows survived (50006 + 3) [50009]
+PASS  contrast: dev down -v removes the volume too
+PASS  contrast: dev up starts from an empty volume
+PASS  contrast: init.sql ran again (rows) [50006]
+PASS  contrast: the incident is gone [0]
+
+== 4. Prod environment (web + db + cache) ==
+PASS  prod web is healthy [healthy]
+PASS  prod db is healthy [healthy]
+PASS  prod cache is healthy [healthy]
+PASS  prod defines the cache service [cache db web]
+PASS  prod /status HTTP code [200]
+PASS  prod /health HTTP code [200]
+PASS  prod environment reported [production]
+PASS  prod overall status [ok]
+PASS  prod database [up]
+PASS  prod cache [up]
+PASS  prod web publishes only on localhost [127.0.0.1:8080]
+PASS  prod db publishes no port [0]
+PASS  prod cache publishes no port [0]
+PASS  prod backend network is internal [true]
+PASS  prod db cannot reach the outside
+PASS  prod cache cannot reach the outside
+PASS  prod web runs as non-root (uid) [1000]
+PASS  prod redis runs as non-root (uid) [999]
+PASS  prod web memory limit (bytes) [268435456]
+PASS  prod db memory limit (bytes) [536870912]
+PASS  prod cache memory limit (bytes) [134217728]
+PASS  redis snapshots disabled (save) []
+PASS  redis append-only file disabled [no]
+PASS  redis memory cap (bytes) [67108864]
+PASS  redis eviction policy [allkeys-lru]
+PASS  redis rejects clients without the password
+PASS  prod make test-db: PostgreSQL accepts connections
+PASS  make test-cache: Redis answers PONG
+
+== 5. Cache behaviour (prod) ==
+PASS  first read is a MISS [MISS]
+PASS  second read is a HIT [HIT]
+PASS  write through the API [201]
+PASS  read after a write is a MISS [MISS]
+PASS  the new incident is counted (50006 + 1) [50007]
+PASS  next read is a HIT again [HIT]
+PASS  prod: /status reports the cache down
+PASS  prod: overall status while cache is down [degraded]
+PASS  prod: HTTP code while cache is down [200]
+PASS  prod: web container stays healthy while cache is down [healthy]
+PASS  prod: reads keep working from PostgreSQL [MISS]
+PASS  prod: write while the cache is down [201]
+PASS  prod: /status recovers when the cache returns
+PASS  after the restart the first read is a MISS (no stale data) [MISS]
+PASS  the write made during the outage is visible (50006 + 2) [50008]
+PASS  next read is a HIT [HIT]
+INFO  server-side read time over 30 requests each: MISS mean 7.51 ms, HIT mean 0.52 ms
+PASS  a cache HIT is faster than a MISS on average
+PASS  prod (info) logs no request lines [0]
+PASS  prod web exits with code 0 on SIGTERM (graceful shutdown) [0]
+PASS  prod web starts again
+
+== 6. Healthchecks ==
+PASS  web healthcheck turns unhealthy when the app does not answer
+INFO  pg_isready answered over the unix socket at 2573 ms and over TCP at 3630 ms (cold start)
+PASS  the TCP check answers only after init.sql finished (later than the socket check)
+PASS  all rows exist when the TCP check reports ready [50006]
+
+113 passed, 0 failed

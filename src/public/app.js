@@ -26,6 +26,7 @@ const SERVICE_STATE = { up: 'Operational', down: 'Unavailable', disabled: 'Disab
 
 const state = {
   incidents: [],
+  recentIncidents: [],
   stats: null,
   loaded: false,
   error: false,
@@ -33,6 +34,7 @@ const state = {
   query: '',
   status: '',
   priority: '',
+  limit: 20,
   sort: { key: 'created_at', dir: 'desc' },
   reads: [],
   events: [],
@@ -247,24 +249,25 @@ function renderDonut() {
 
 function renderPriority() {
   const root = $('#priority-bars');
-  if (!state.incidents.length) {
+  const items = state.recentIncidents.length ? state.recentIncidents : state.incidents;
+  if (!items.length) {
     root.replaceChildren(placeholder());
     return;
   }
 
   const counts = { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 };
-  for (const incident of state.incidents) counts[incident.priority] += 1;
+  for (const incident of items) counts[incident.priority] += 1;
 
   root.replaceChildren(
     ...['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((key) => {
       const fill = h('span');
-      fill.style.width = `${(counts[key] / state.incidents.length) * 100}%`;
+      fill.style.width = `${(counts[key] / items.length) * 100}%`;
       return h(
         'div',
         { class: `bar-row c-${key.toLowerCase()}` },
         h('span', { class: 'bar-label', text: PRIORITIES[key] }),
         h('div', { class: 'bar' }, fill),
-        h('span', { class: 'bar-value', text: counts[key] }),
+        h('span', { class: 'bar-value', text: String(counts[key]) }),
       );
     }),
   );
@@ -272,12 +275,13 @@ function renderPriority() {
 
 function renderFeed() {
   const list = $('#recent-list');
-  if (!state.incidents.length) {
+  const items = state.recentIncidents.length ? state.recentIncidents : state.incidents;
+  if (!items.length) {
     list.replaceChildren(h('li', { class: 'feed-empty' }, placeholder()));
     return;
   }
   list.replaceChildren(
-    ...state.incidents.slice(0, 6).map((incident) =>
+    ...items.slice(0, 6).map((incident) =>
       h(
         'li',
         { class: 'feed-item' },
@@ -295,15 +299,25 @@ function renderFeed() {
 
 function renderSource() {
   const last = state.reads[0];
-  $('#source-name').textContent = last ? (SOURCES[last.cache]?.label ?? last.cache) : '–';
-  $('#source-ms').textContent = last ? `${formatMs(last.ms)} ms` : '–';
-  $('#source-spark').replaceChildren(sparkline(state.reads.map((read) => read.ms).reverse()));
+  const source = last ? (SOURCES[last.cache] ?? { label: last.cache, kind: 'neutral' }) : null;
+  const nameEl = $('#source-name');
+  if (nameEl) {
+    nameEl.textContent = source ? source.label : '–';
+    nameEl.className = source ? `source-badge tag c-${source.kind}` : 'source-badge tag c-neutral sk';
+  }
+  const msEl = $('#source-ms');
+  if (msEl) {
+    msEl.textContent = last ? `${formatMs(last.ms)} ms` : '–';
+  }
+  const sparkEl = $('#source-spark');
+  if (sparkEl) {
+    sparkEl.replaceChildren(sparkline(state.reads.map((read) => read.ms).reverse()));
+  }
 }
 
 // ------------------------------------------------------------ incidents UI
 
 function visibleIncidents() {
-  const query = state.query.trim().toLowerCase();
   const { key, dir } = state.sort;
   const direction = dir === 'asc' ? 1 : -1;
   const value = (incident) => {
@@ -313,21 +327,14 @@ function visibleIncidents() {
     return incident.id;
   };
 
-  return state.incidents
-    .filter(
-      (incident) =>
-        (!state.status || incident.status === state.status) &&
-        (!state.priority || incident.priority === state.priority) &&
-        (!query || `${incident.title} ${incident.system_name} #${incident.id}`.toLowerCase().includes(query)),
-    )
-    .sort((a, b) => (value(a) - value(b)) * direction);
+  return [...state.incidents].sort((a, b) => (value(a) - value(b)) * direction);
 }
 
 const messageRow = (...content) => h('tr', {}, h('td', { colspan: 5 }, h('div', { class: 'empty' }, ...content)));
 
 function renderTable() {
   const body = $('#rows');
-  const filtersActive = Boolean(state.query || state.status || state.priority);
+  const filtersActive = Boolean(state.query || state.status || state.priority || state.limit !== 20);
   $('#clear-filters').hidden = !filtersActive;
 
   for (const th of document.querySelectorAll('th[data-col]')) {
@@ -387,8 +394,10 @@ function renderTable() {
   }
   state.highlight = null;
 
-  $('#table-foot').textContent =
-    `${rows.length} of the ${state.incidents.length} latest incidents shown · ${fmt.format(state.stats.total)} in the database`;
+  const total = state.stats?.total ? fmt.format(state.stats.total) : '–';
+  $('#table-foot').textContent = filtersActive
+    ? `Showing ${rows.length} incidents matching filters (out of ${total} in database)`
+    : `Showing ${rows.length} latest incidents (out of ${total} in database)`;
 }
 
 function fact(label, value) {
@@ -396,7 +405,9 @@ function fact(label, value) {
 }
 
 function openDetail(id) {
-  const incident = state.incidents.find((item) => item.id === id);
+  const incident =
+    state.incidents.find((item) => item.id === id) ||
+    state.recentIncidents.find((item) => item.id === id);
   if (!incident) return;
 
   $('#detail-body').replaceChildren(
@@ -436,17 +447,40 @@ function buildServiceCards() {
   );
 }
 
+function renderMiniServices() {
+  for (const { key } of SERVICES) {
+    const info = state.services[key];
+    if (!info) continue;
+    const el = $(`[data-mini-service="${key}"]`);
+    if (!el) continue;
+    el.dataset.state = info.state;
+    const dot = el.querySelector('.dot');
+    if (dot) dot.className = `dot dot-${info.state}`;
+    const stateEl = el.querySelector('.mini-svc-state');
+    if (stateEl) {
+      if (info.state === 'up') {
+        stateEl.textContent = info.latency === null ? 'Operational' : `${formatMs(info.latency)} ms`;
+      } else {
+        stateEl.textContent = SERVICE_STATE[info.state] ?? info.state;
+      }
+    }
+  }
+}
+
 function renderServices() {
   for (const { key } of SERVICES) {
     const info = state.services[key];
     if (!info) continue;
     const card = $(`[data-service="${key}"]`);
-    card.dataset.state = info.state;
-    card.querySelector('.dot').className = `dot dot-${info.state}`;
-    card.querySelector('.svc-state').textContent = SERVICE_STATE[info.state] ?? info.state;
-    card.querySelector('.svc-latency').textContent = info.latency === null ? '–' : `${formatMs(info.latency)} ms`;
-    card.querySelector('.svc-spark').replaceChildren(sparkline(state.history[key]));
+    if (card) {
+      card.dataset.state = info.state;
+      card.querySelector('.dot').className = `dot dot-${info.state}`;
+      card.querySelector('.svc-state').textContent = SERVICE_STATE[info.state] ?? info.state;
+      card.querySelector('.svc-latency').textContent = info.latency === null ? '–' : `${formatMs(info.latency)} ms`;
+      card.querySelector('.svc-spark').replaceChildren(sparkline(state.history[key]));
+    }
   }
+  renderMiniServices();
 }
 
 function renderHealth() {
@@ -581,6 +615,7 @@ async function checkStatus() {
 // --------------------------------------------------------------- data load
 
 let inFlight = false;
+let pendingReload = false;
 
 function renderAll() {
   document.body.toggleAttribute('data-loading', !state.loaded && !state.error);
@@ -594,22 +629,39 @@ function renderAll() {
   renderPriority();
   renderFeed();
   renderSource();
+  renderMiniServices();
   renderTable();
   renderReads();
 }
 
 async function loadIncidents() {
-  if (inFlight) return;
+  if (inFlight) {
+    pendingReload = true;
+    return;
+  }
   inFlight = true;
+  pendingReload = false;
   $('#refresh').disabled = true;
   $('#read-now').disabled = true;
 
   try {
-    const response = await request('/api/incidents');
+    const params = new URLSearchParams();
+    if (state.query) params.set('q', state.query);
+    if (state.status) params.set('status', state.status);
+    if (state.priority) params.set('priority', state.priority);
+    if (state.limit && state.limit !== 20) params.set('limit', state.limit);
+
+    const qs = params.toString();
+    const url = qs ? `/api/incidents?${qs}` : '/api/incidents';
+
+    const response = await request(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const { data, meta } = await response.json();
 
     state.incidents = data.incidents;
+    if (!state.query && !state.status && !state.priority) {
+      state.recentIncidents = data.incidents.slice(0, 20);
+    }
     state.stats = data.stats;
     state.loaded = true;
     state.error = false;
@@ -621,6 +673,11 @@ async function loadIncidents() {
     inFlight = false;
     $('#refresh').disabled = false;
     $('#read-now').disabled = false;
+    if (pendingReload) {
+      pendingReload = false;
+      loadIncidents();
+      return;
+    }
   }
   renderAll();
 }
@@ -653,6 +710,12 @@ newForm.addEventListener('submit', async (event) => {
     if (response.status === 201) {
       newForm.reset();
       newDialog.close();
+      Object.assign(state, { query: '', status: '', priority: '', limit: 20 });
+      $('#search').value = '';
+      $('#filter-status').value = '';
+      $('#filter-priority').value = '';
+      const filterLimitEl = $('#filter-limit');
+      if (filterLimitEl) filterLimitEl.value = '20';
       state.highlight = body.data.id;
       toast(`Incident #${body.data.id} created`, 'ok');
       await loadIncidents();
@@ -688,31 +751,42 @@ $('#refresh').addEventListener('click', loadIncidents);
 $('#read-now').addEventListener('click', loadIncidents);
 $('#banner-retry').addEventListener('click', loadIncidents);
 
+let searchDebounceTimer = null;
+
 $('#search').addEventListener('input', (event) => {
   state.query = event.target.value;
-  renderTable();
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    loadIncidents();
+  }, 300);
 });
 $('#search').addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape') return;
-  event.target.value = '';
-  state.query = '';
-  event.target.blur();
-  renderTable();
+  if (event.key === 'Escape') {
+    clearTimeout(searchDebounceTimer);
+    event.target.value = '';
+    state.query = '';
+    event.target.blur();
+    loadIncidents();
+  } else if (event.key === 'Enter') {
+    clearTimeout(searchDebounceTimer);
+    loadIncidents();
+  }
 });
 $('#filter-status').addEventListener('change', (event) => {
   state.status = event.target.value;
-  renderTable();
+  loadIncidents();
 });
 $('#filter-priority').addEventListener('change', (event) => {
   state.priority = event.target.value;
-  renderTable();
+  loadIncidents();
 });
+
 $('#clear-filters').addEventListener('click', () => {
   Object.assign(state, { query: '', status: '', priority: '' });
   $('#search').value = '';
   $('#filter-status').value = '';
   $('#filter-priority').value = '';
-  renderTable();
+  loadIncidents();
 });
 
 for (const button of document.querySelectorAll('[data-sort]')) {

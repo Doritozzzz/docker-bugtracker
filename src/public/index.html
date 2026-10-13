@@ -91,29 +91,53 @@
         </article>
       </div>
 
-      <div class="grid-2">
-        <article class="card">
-          <header class="card-head"><h2>Recent incidents</h2><a class="link" href="#/incidents">View all</a></header>
-          <ul id="recent-list" class="feed"></ul>
-        </article>
-        <article class="card">
-          <header class="card-head"><h2>Data source</h2><a class="link" href="#/system">Details</a></header>
-          <div class="card-body">
-            <p class="sub">Last read served by</p>
-            <p id="source-name" class="source-name sk">–</p>
-            <p id="source-ms" class="source-ms mono">–</p>
-            <div id="source-spark" class="source-spark"></div>
-            <p class="sub">Cache-aside: Redis is asked first, PostgreSQL answers on a miss. Each bar of the chart is one read.</p>
-          </div>
-        </article>
-      </div>
+      <article class="card section-gap">
+        <header class="card-head"><h2>Recent incidents</h2><a class="link" href="#/incidents">View all</a></header>
+        <ul id="recent-list" class="feed"></ul>
+      </article>
     </section>
 
     <!-- =========================================================== INCIDENTS -->
     <section class="view" data-view="incidents" hidden>
       <div class="page-head">
         <h1>Incidents</h1>
-        <p class="sub">The 20 most recent incidents. Search and filters run in your browser.</p>
+        <p class="sub">Search and filter across all 50,000+ incidents, accelerated with Redis cache.</p>
+      </div>
+
+      <div class="query-status-panel card">
+        <div class="query-status-services">
+          <span class="query-status-label">Services</span>
+          <div id="mini-services" class="mini-services">
+            <a href="#/system" class="mini-svc" data-mini-service="web" title="View Web details in System">
+              <span class="dot dot-unknown"></span>
+              <span class="mini-svc-name">Web</span>
+              <span class="mini-svc-state mono">–</span>
+            </a>
+            <a href="#/system" class="mini-svc" data-mini-service="database" title="View PostgreSQL details in System">
+              <span class="dot dot-unknown"></span>
+              <span class="mini-svc-name">PostgreSQL</span>
+              <span class="mini-svc-state mono">–</span>
+            </a>
+            <a href="#/system" class="mini-svc" data-mini-service="cache" title="View Redis details in System">
+              <span class="dot dot-unknown"></span>
+              <span class="mini-svc-name">Redis</span>
+              <span class="mini-svc-state mono">–</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="query-status-divider" aria-hidden="true"></div>
+
+        <div class="query-status-source">
+          <div class="query-source-text">
+            <span class="query-status-label">Last query source</span>
+            <div class="query-source-badge-wrap">
+              <span id="source-name" class="source-badge tag c-neutral sk">–</span>
+              <span id="source-ms" class="source-ms mono">–</span>
+            </div>
+          </div>
+          <div id="source-spark" class="source-spark-mini" title="Recent query latency history"></div>
+        </div>
       </div>
 
       <div class="toolbar">

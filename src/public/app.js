@@ -249,25 +249,27 @@ function renderDonut() {
 
 function renderPriority() {
   const root = $('#priority-bars');
-  const items = state.recentIncidents.length ? state.recentIncidents : state.incidents;
-  if (!items.length) {
+  const stats = state.stats;
+  if (!stats?.byPriority || !stats.total) {
     root.replaceChildren(placeholder());
     return;
   }
 
-  const counts = { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 };
-  for (const incident of items) counts[incident.priority] += 1;
+  const counts = stats.byPriority;
+  const total = stats.total;
 
   root.replaceChildren(
     ...['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((key) => {
+      const count = counts[key] ?? 0;
+      const pct = Math.round((count / total) * 100);
       const fill = h('span');
-      fill.style.width = `${(counts[key] / items.length) * 100}%`;
+      fill.style.width = `${(count / total) * 100}%`;
       return h(
         'div',
-        { class: `bar-row c-${key.toLowerCase()}` },
+        { class: `bar-row c-${key.toLowerCase()}`, title: `${PRIORITIES[key]}: ${fmt.format(count)} incidents (${pct}%)` },
         h('span', { class: 'bar-label', text: PRIORITIES[key] }),
         h('div', { class: 'bar' }, fill),
-        h('span', { class: 'bar-value', text: String(counts[key]) }),
+        h('span', { class: 'bar-value', text: fmt.format(count) }),
       );
     }),
   );
@@ -781,11 +783,20 @@ $('#filter-priority').addEventListener('change', (event) => {
   loadIncidents();
 });
 
+const filterLimitEl = $('#filter-limit');
+if (filterLimitEl) {
+  filterLimitEl.addEventListener('change', (event) => {
+    state.limit = parseInt(event.target.value, 10) || 20;
+    loadIncidents();
+  });
+}
+
 $('#clear-filters').addEventListener('click', () => {
-  Object.assign(state, { query: '', status: '', priority: '' });
+  Object.assign(state, { query: '', status: '', priority: '', limit: 20 });
   $('#search').value = '';
   $('#filter-status').value = '';
   $('#filter-priority').value = '';
+  if (filterLimitEl) filterLimitEl.value = '20';
   loadIncidents();
 });
 

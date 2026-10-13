@@ -86,7 +86,7 @@
           </div>
         </article>
         <article class="card">
-          <header class="card-head"><h2>Priority mix</h2><span class="sub">Latest 20 incidents</span></header>
+          <header class="card-head"><h2>Priority mix</h2><span class="sub">All incidents</span></header>
           <div id="priority-bars" class="card-body"></div>
         </article>
       </div>
@@ -158,6 +158,12 @@
           <option value="HIGH">High</option>
           <option value="MEDIUM">Medium</option>
           <option value="LOW">Low</option>
+        </select>
+        <select id="filter-limit" class="input select" aria-label="Limit results">
+          <option value="10">10 incidents</option>
+          <option value="20" selected>20 incidents</option>
+          <option value="50">50 incidents</option>
+          <option value="100">100 incidents</option>
         </select>
         <button id="clear-filters" class="btn btn-ghost" type="button" hidden>Clear</button>
         <button id="refresh" class="btn" type="button">Refresh</button>

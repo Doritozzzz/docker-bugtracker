@@ -179,7 +179,7 @@ main { padding-bottom: 2rem; }
 .legend .legend-pct { width: 2.75rem; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* Bars */
-.bar-row { display: grid; grid-template-columns: 4.5rem 1fr 2rem; gap: 0.75rem; align-items: center; margin: 0.7rem 0; }
+.bar-row { display: grid; grid-template-columns: 5rem 1fr auto; gap: 0.75rem; align-items: center; margin: 0.7rem 0; }
 .bar-label { color: var(--muted); }
 .bar { height: 0.5rem; overflow: hidden; border-radius: 999px; background: var(--surface-2); }
 .bar > span { display: block; height: 100%; border-radius: inherit; background: var(--c); transition: width 0.4s; }

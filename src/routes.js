@@ -6,8 +6,33 @@ import * as db from './db.js';
 const router = Router();
 
 const INCIDENTS_KEY = 'incidents';
-const LIST_LIMIT = 20;
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
+const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
 const COLUMNS = 'id, title, system_name, priority, status, created_at, updated_at';
+
+function getCacheKey({ q = '', priority = '', status = '', limit = DEFAULT_LIMIT } = {}) {
+  if (!q && !priority && !status && limit === DEFAULT_LIMIT) {
+    return INCIDENTS_KEY;
+  }
+  return `${INCIDENTS_KEY}:${q || '*'}:${priority || '*'}:${status || '*'}:${limit}`;
+}
+
+function sanitizeFilters(query) {
+  const q = typeof query?.q === 'string' ? query.q.trim().slice(0, 100) : '';
+  const rawPriority = typeof query?.priority === 'string' ? query.priority.trim().toUpperCase() : '';
+  const priority = PRIORITIES.includes(rawPriority) ? rawPriority : '';
+  const rawStatus = typeof query?.status === 'string' ? query.status.trim().toUpperCase() : '';
+  const status = STATUSES.includes(rawStatus) ? rawStatus : '';
+
+  const parsedLimit = parseInt(query?.limit, 10);
+  const limit = Number.isInteger(parsedLimit) && parsedLimit > 0
+    ? Math.min(parsedLimit, MAX_LIMIT)
+    : DEFAULT_LIMIT;
+
+  return { q, priority, status, limit };
+}
 
 const elapsedMs = (start) => Number((performance.now() - start).toFixed(2));
 
@@ -82,30 +107,61 @@ async function readThrough(key, load) {
   };
 }
 
-// Loads the latest incidents and the totals per status. The totals query scans
-// the whole table, which is the cost the cache avoids on later requests. Both
-// queries run in parallel.
-async function loadIncidents() {
-  const [list, counts] = await Promise.all([
+// Loads incidents matching the given filters and global status totals.
+// The totals query scans the whole table in parallel with the filtered list query.
+async function loadIncidents({ q = '', priority = '', status = '', limit = DEFAULT_LIMIT } = {}) {
+  const conditions = [];
+  const params = [];
+
+  if (priority) {
+    params.push(priority);
+    conditions.push(`priority = $${params.length}`);
+  }
+
+  if (status) {
+    params.push(status);
+    conditions.push(`status = $${params.length}`);
+  }
+
+  if (q) {
+    const cleanQ = q.startsWith('#') ? q.slice(1).trim() : q;
+    params.push(`%${cleanQ}%`);
+    conditions.push(`(title ILIKE $${params.length} OR system_name ILIKE $${params.length} OR id::text ILIKE $${params.length})`);
+  }
+
+  params.push(limit);
+  const limitPlaceholder = `$${params.length}`;
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const [list, statusCounts, priorityCounts] = await Promise.all([
     db.pool.query(
-      `SELECT ${COLUMNS} FROM incidents ORDER BY created_at DESC LIMIT $1`,
-      [LIST_LIMIT],
+      `SELECT ${COLUMNS} FROM incidents ${whereClause} ORDER BY created_at DESC LIMIT ${limitPlaceholder}`,
+      params,
     ),
     db.pool.query('SELECT status, count(*)::int AS count FROM incidents GROUP BY status'),
+    db.pool.query('SELECT priority, count(*)::int AS count FROM incidents GROUP BY priority'),
   ]);
 
-  const stats = { total: 0, byStatus: { OPEN: 0, IN_PROGRESS: 0, RESOLVED: 0 } };
-  for (const row of counts.rows) {
+  const stats = {
+    total: 0,
+    byStatus: { OPEN: 0, IN_PROGRESS: 0, RESOLVED: 0 },
+    byPriority: { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 },
+  };
+  for (const row of statusCounts.rows) {
     stats.byStatus[row.status] = row.count;
     stats.total += row.count;
+  }
+  for (const row of priorityCounts.rows) {
+    stats.byPriority[row.priority] = row.count;
   }
   return { incidents: list.rows, stats };
 }
 
-// Latest incidents plus totals. The headers make the cache behaviour visible
-// from curl.
+// Latest incidents matching query parameters plus totals. Cached per parameter combination.
 router.get('/api/incidents', async (req, res) => {
-  const result = await readThrough(INCIDENTS_KEY, loadIncidents);
+  const filters = sanitizeFilters(req.query);
+  const cacheKey = getCacheKey(filters);
+  const result = await readThrough(cacheKey, () => loadIncidents(filters));
   res.set('X-Cache', result.cache);
   res.set('X-Response-Time', `${result.durationMs}ms`);
   res.json({
@@ -113,8 +169,6 @@ router.get('/api/incidents', async (req, res) => {
     meta: { source: result.source, cache: result.cache, durationMs: result.durationMs },
   });
 });
-
-const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 // Validates the body of a new incident and returns the cleaned fields
 // together with the list of validation errors.
@@ -153,6 +207,7 @@ router.post('/api/incidents', async (req, res) => {
     [title, systemName, priority],
   );
   await cache.del(INCIDENTS_KEY);
+  await cache.delPattern(`${INCIDENTS_KEY}:*`);
   res.status(201).json({ data: rows[0] });
 });
 

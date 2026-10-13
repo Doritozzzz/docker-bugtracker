@@ -105,6 +105,21 @@ async function del(...keys) {
   }
 }
 
+// Invalidates all keys matching a glob pattern using SCAN without blocking.
+async function delPattern(pattern) {
+  if (!isReady()) return;
+  try {
+    const stream = client.scanStream({ match: pattern, count: 100 });
+    for await (const keys of stream) {
+      if (keys.length > 0) {
+        await client.del(...keys);
+      }
+    }
+  } catch (error) {
+    recordAvailability(false, error.message || error.code);
+  }
+}
+
 async function close() {
   if (!client) return;
   try {
@@ -114,4 +129,4 @@ async function close() {
   }
 }
 
-export { enabled, ping, get, set, del, close };
+export { enabled, ping, get, set, del, delPattern, close };

@@ -12,6 +12,7 @@ help: ## List the available targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
 
 setup-env: .env.dev .env.prod ## Create .env.dev and .env.prod with random secrets (mode 600)
+	@chmod 600 .env.dev .env.prod
 	@echo "environment files ready"
 
 # Each .env file is created only when it does not exist. The template is an

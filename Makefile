@@ -23,6 +23,7 @@ setup-env: .env.dev .env.prod ## Create .env.dev and .env.prod with random secre
 	    case "$$line" in *=CHANGE_ME) line="$${line%CHANGE_ME}$$(openssl rand -hex 24)";; esac; \
 	    printf '%s\n' "$$line"; \
 	  done < .env.$*.example > $@ )
+	@chmod 600 $@
 	@echo "created $@"
 
 build: .env.dev .env.prod ## Build the web image of both environments
@@ -90,6 +91,7 @@ dist: .env.dev .env.prod ## Build dist/docker-bugtracker.zip: committed files pl
 	@rm -rf dist && mkdir -p dist/docker-bugtracker
 	git archive HEAD | tar -x -C dist/docker-bugtracker
 	cp .env.dev .env.prod dist/docker-bugtracker/
+	chmod 600 dist/docker-bugtracker/.env.dev dist/docker-bugtracker/.env.prod
 	cd dist && python3 -m zipfile -c docker-bugtracker.zip docker-bugtracker
 	@rm -rf dist/docker-bugtracker
 	@echo 'built dist/docker-bugtracker.zip'

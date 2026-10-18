@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .DELETE_ON_ERROR:
 .PHONY: help setup-env build up-dev up-prod down clean ps status logs \
-	    test-db test-cache kill-db start-db kill-cache start-cache test demo
+	    test-db test-cache kill-db start-db kill-cache start-cache test demo dist
 
 # Environment used by the commands that take ENV=dev|prod.
 ENV ?= dev
@@ -84,3 +84,12 @@ test: ## Run every verification from scratch (destroys this project data)
 
 demo: ## Run interactive guided demonstration for practice defense
 	@bash scripts/demo.sh
+
+dist: .env.dev .env.prod ## Build dist/docker-bugtracker.zip: committed files plus the local .env files
+	@git diff --quiet HEAD || echo 'warning: uncommitted changes are not in the zip (git archive uses HEAD)'
+	@rm -rf dist && mkdir -p dist/docker-bugtracker
+	git archive HEAD | tar -x -C dist/docker-bugtracker
+	cp .env.dev .env.prod dist/docker-bugtracker/
+	cd dist && python3 -m zipfile -c docker-bugtracker.zip docker-bugtracker
+	@rm -rf dist/docker-bugtracker
+	@echo 'built dist/docker-bugtracker.zip'
